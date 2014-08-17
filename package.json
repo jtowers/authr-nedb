@@ -1,0 +1,38 @@
+{
+  "name": "authr-nedb",
+  "version": "0.0.1",
+  "description": "nedb adapter for authr",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com:jtowers/authr-nedb.git"
+  },
+  "keywords": [
+    "authorization",
+    "security"
+  ],
+  "author": "John Towers",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jtowers/authr-nedb/issues"
+  },
+  "homepage": "https://github.com/jtowers/authr-nedb",
+  "dependencies": {
+    "moment": "~2.8.1",
+    "async": "~0.9.0",
+    "nedb": "~0.10.7",
+    "bcrypt": "~0.8.0"
+  },
+  "devDependencies": {
+    "mocha": "*",
+    "chai": "*",
+    "jsdoc": "~3.3.0-alpha9",
+    "ink-docstrap": "~0.4.12"
+  },
+  "directories": {
+    "test": "test"
+  }
+}

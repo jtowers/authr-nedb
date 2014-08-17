@@ -1,0 +1,17 @@
+{
+// Configure your Run and Preview buttons here.
+
+// Run button configuration
+  "commands": {
+    "Docs":"./node_modules/.bin/jsdoc index.js -d doc -t ./node_modules/ink-docstrap/template -c ./node_modules/ink-docstrap/template/jsdoc.conf.json README.md",
+        "Node version": "node --version"
+  },
+
+// Preview button configuration
+  "preview": {
+        "Project Index (static)": "https://{{domain}}/{{index}}",
+        "Current File (static)": "https://{{domain}}/{{filepath}}",
+        "Box URL": "http://{{domain}}:3000/",
+        "Box URL SSL": "https://{{domain}}:9500/"
+  }
+}
