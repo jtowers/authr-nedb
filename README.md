@@ -21,7 +21,7 @@ var authr = new Authr(); // use the default configuration
 
 var signup = {
     username: 'some_user',
-    password: 'super_secure''
+    password: 'super_secure'
 }
 
 authr.signUp(signup, function(user){
