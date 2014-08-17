@@ -46,8 +46,9 @@ Adapter.prototype.disconnect = function(callback){
  * adapter.signUpConfig({account: {username: 'some_user', password: 'some_password'}});
  */
 Adapter.prototype.signupConfig = function(signup){
-  this.signup = signup;
+  this.signup= signup;
 };
+
 
 /**
  * Look up a key's value when given the path as a string mimicing dot-notation.
@@ -151,29 +152,31 @@ Adapter.prototype.hash_password = function(callback){
  * Sets expiration to now + number of hours defined in authr config (config.security.email_verification_expiration_hours)
  * @function
  * @name doEmailVerification
+ * @param {Object} obj - Object to modify
  * @param {Callback} callback - Run a callback when finished
  * @return {Callback}
  */
-Adapter.prototype.doEmailVerification = function(callback){
+Adapter.prototype.doEmailVerification = function(obj, callback){
   var now = moment().format("dddd, MMMM Do YYYY, h:mm:ss a");
-  var username = this.getVal(this.signup, this.config.user.username);
+  var username = this.getVal(obj, this.config.user.username);
   var hash = crypto.createHash('md5').update(username + now).digest('hex');
-  this.signup = this.buildQuery(this.signup, this.config.user.email_verification_hash, hash);
-  this.signup = this.buildQuery(this.signup, this.config.user.email_verification_hash_expires, moment().add(this.config.security.email_verification_expiration_hours, 'h').toDate());
-  this.signup = this.buildQuery(this.signup, this.config.user.email_verified, false);
-  return callback();
+  obj = this.buildQuery(obj, this.config.user.email_verification_hash, hash);
+  obj = this.buildQuery(obj, this.config.user.email_verification_hash_expires, moment().add(this.config.security.email_verification_expiration_hours, 'hours').toDate());
+  obj = this.buildQuery(obj, this.config.user.email_verified, false);
+  return callback(null,obj);
 };
 
 /**
  * Create account security defaults
  * @function
  * @name doEmailVerification
+ * @param {Object} obj - object to add to
  */
-Adapter.prototype.buildAccountSecurity = function(){
-  this.signup = this.buildQuery(this.signup, this.config.user.account_locked, false);
-  this.signup = this.buildQuery(this.signup, this.config.user.account_locked_until, null);
-  this.signup = this.buildQuery(this.signup, this.config.user.account_failed_attempts, 0);
-  this.signup = this.buildQuery(this.signup, this.config.user.account_last_failed_attempt, null);
+Adapter.prototype.buildAccountSecurity = function(obj){
+  obj = this.buildQuery(obj, this.config.user.account_locked, false);
+  obj = this.buildQuery(obj, this.config.user.account_locked_until, null);
+  obj = this.buildQuery(obj, this.config.user.account_failed_attempts, 0);
+  obj = this.buildQuery(obj, this.config.user.account_last_failed_attempt, null);
 };
 
 /**
@@ -189,6 +192,68 @@ Adapter.prototype.saveUser = function(callback){
   });
 };
 
+/**
+ * Looks for user account using email verification token
+ * @function
+ * @name findVerificationToken
+ * @param {String} token - verification token to look for
+ * @param {Callback} callback - execute callback when account is found
+ * @return {Callback}
+ */
+Adapter.prototype.findVerificationToken = function(token, callback){
+  var self = this;
+  query = JSON.parse('{"'+ this.config.user.email_verification_hash + '":"' + token + '"}');
+  this.db.findOne(query, function(err, user){
+    if(err){
+      throw err;
+    }
+    if(!user){
+     
+      return callback(self.config.errmsg.token_not_found, null);
+    } else {
+      
+      self.user = user;
+      return callback(null, user);
+    }
+  });
+};
+
+/**
+ * Check to see if the token is expired
+ * @function
+ * @name verificationExpired
+ * @return {Boolean}
+ */
+Adapter.prototype.verificationExpired = function(){
+  var now = moment();
+  var expires = moment(this.user.email_verification_hash_expires);
+  if(now.isAfter(expires)){
+    return true;
+  } else {
+    return false;
+  }
+};
+
+/**
+ * Verify email address in the datastore
+ * @function
+ * @name verifyEmailAddress
+ * @param {Callback} callback - Execute a callback when done inserting
+ * @return {Callback} callback
+ */
+Adapter.prototype.verifyEmailAddress = function(callback){
+  this.user = this.buildQuery(this.user, this.config.user.email_verified, true);
+  var self = this;
+  var username = this.getVal(this.user, this.config.user.email_address);
+  var find_query = JSON.parse('{"'+this.config.username + '":"' + username + '"}');
+  this.db.update(find_query, this.user, function(err, user){
+    if(err){
+      throw err;
+    }
+
+    callback(null, self.user);
+  });
+};
 
 /**
  * Remove the collection. Mostly used for testing. Will probably find a use for it.
@@ -196,9 +261,9 @@ Adapter.prototype.saveUser = function(callback){
  * @name resetCollection
  * @param {Callback} callback - Execute callback when finished dropping the collection
  * @return {Callback}
- */ 
+ */
 Adapter.prototype.resetCollection = function(callback){
-  this.db.remove({}, function(err){
+  this.db.remove({}, {multi:true}, function(err){
       callback(err);
   });
 };
