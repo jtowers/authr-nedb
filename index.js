@@ -185,11 +185,7 @@ Adapter.prototype.buildAccountSecurity = function(){
  */
 Adapter.prototype.saveUser = function(callback){
   this.db.insert(this.signup, function(err, doc){
-    if(err){
-      throw err;
-    } else {
-      return callback(doc);
-    }
+      return callback(err,doc);
   });
 };
 
@@ -203,11 +199,7 @@ Adapter.prototype.saveUser = function(callback){
  */ 
 Adapter.prototype.resetCollection = function(callback){
   this.db.remove({}, function(err){
-    if(err){
-      throw err;
-    } else {
-      callback();
-    }
+      callback(err);
   });
 };
 
