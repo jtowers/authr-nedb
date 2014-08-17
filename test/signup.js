@@ -85,13 +85,13 @@ describe('signup', function () {
         done();
       });
     });
-    
+
     it('should be able to save users', function(done){
       adapter.connect(function(err){
         if(err){
           throw err;
         }
-        adapter.saveUser(function(user){
+        adapter.saveUser(function(err,user){
           should.exist(user);
           adapter.disconnect(function(){
             done();
