@@ -127,7 +127,7 @@ Adapter.prototype.isUsernameTaken = function (username, cb) {
     if(doc) {
 
       self.user = doc;
-      
+
       return cb(true);
     } else {
       return cb(false);
@@ -366,8 +366,8 @@ Adapter.prototype.isAccountLocked = function (callback) {
 
 };
 
-Adapter.prototype.isEmailVerified = function(){
- var isVerified = this.getVal(this.user, this.config.user.email_verified);
+Adapter.prototype.isEmailVerified = function () {
+  var isVerified = this.getVal(this.user, this.config.user.email_verified);
   return isVerified;
 };
 
@@ -381,13 +381,30 @@ Adapter.prototype.isEmailVerified = function(){
  * @return {Callback}
  */
 Adapter.prototype.doEmailVerification = function (obj, callback) {
-  var now = moment().format("dddd, MMMM Do YYYY, h:mm:ss a");
-  var username = this.getVal(obj, this.config.user.username);
-  var hash = crypto.createHash('md5').update(username + now).digest('hex');
-  obj = this.buildQuery(obj, this.config.user.email_verification_hash, hash);
-  obj = this.buildQuery(obj, this.config.user.email_verification_hash_expires, moment().add(this.config.security.email_verification_expiration_hours, 'hours').toDate());
-  obj = this.buildQuery(obj, this.config.user.email_verified, false);
-  return callback(null, obj);
+  var self = this;
+  this.generateToken(20, function (err, token) {
+    if(err) throw err;
+    obj = self.buildQuery(obj, self.config.user.email_verification_hash, token);
+    obj = self.buildQuery(obj, self.config.user.email_verification_hash_expires, moment().add(self.config.security.email_verification_expiration_hours, 'hours').toDate());
+    obj = self.buildQuery(obj, self.config.user.email_verified, false);
+    return callback(null, obj);
+  });
+
+};
+
+/**
+ * Generate a signup or password reset token
+ * @function
+ * @name generateToken
+ * @param size - size
+ * @param {Callback} callback - execute a callback after the token is generated
+ * @return {Callback}
+ */
+Adapter.prototype.generateToken = function(size, callback){
+  crypto.randomBytes(size, function(err, buf) {
+        var token = buf.toString('hex');
+        callback(err, token);
+      });
 };
 
 /**
@@ -476,7 +493,7 @@ Adapter.prototype.verifyEmailAddress = function (callback) {
     if(err) {
       throw err;
     }
-    
+
     callback(null, self.user);
   });
 };
