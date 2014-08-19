@@ -118,7 +118,10 @@ Adapter.prototype.buildSimpleQuery = function (key, value) {
  */
 Adapter.prototype.isValueTaken = function (object, path, cb) {
   var self = this;
-  var val = this.getVal(object, path).toLowerCase();
+  var val = this.getVal(object, path);
+  if(val){
+    val.toLowerCase();
+  }
   var query = this.buildSimpleQuery(path, val);
   this.db.findOne(query, function (err, doc) {
     if(err) {
