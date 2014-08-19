@@ -1,6 +1,6 @@
 {
   "name": "authr-nedb",
-  "version": "0.0.5",
+  "version": "0.0.5a",
   "description": "nedb adapter for authr",
   "main": "index.js",
   "scripts": {

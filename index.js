@@ -116,9 +116,10 @@ Adapter.prototype.buildSimpleQuery = function (key, value) {
  * @param {Function} cb - Run callback when finished connecting
  * @return {Function}
  */
-Adapter.prototype.isUsernameTaken = function (username, cb) {
+Adapter.prototype.isValueTaken = function (object, path, cb) {
   var self = this;
-  var query = this.buildSimpleQuery(this.config.user.username, username);
+  var val = this.getVal(object, path).toLowerCase();
+  var query = this.buildSimpleQuery(path, val);
   this.db.findOne(query, function (err, doc) {
     if(err) {
       throw err;
@@ -140,7 +141,7 @@ Adapter.prototype.isUsernameTaken = function (username, cb) {
  * Check to make sure the credentials were supplied
  * @function
  * @name checkCredentials
- * @return {}
+ * @return {null|String}
  */
 Adapter.prototype.checkCredentials = function () {
   username = this.getVal(this.signup, this.config.user.username);
@@ -164,12 +165,11 @@ Adapter.prototype.hash_password = function (callback) {
   var self = this;
   bcrypt.genSalt(this.config.security.hash_salt_factor, function (err, salt) {
     if(err) {
-      callback(err);
+      throw err;
     } else {
       bcrypt.hash(password, salt, function (err, hash) {
         if(err) {
           throw err;
-          //callback(err);
         } else {
           self.signup = self.buildQuery(self.signup, self.config.user.password, hash);
           callback(err, hash);
@@ -381,30 +381,13 @@ Adapter.prototype.isEmailVerified = function () {
  * @return {Callback}
  */
 Adapter.prototype.doEmailVerification = function (obj, callback) {
-  var self = this;
-  this.generateToken(20, function (err, token) {
-    if(err) throw err;
-    obj = self.buildQuery(obj, self.config.user.email_verification_hash, token);
-    obj = self.buildQuery(obj, self.config.user.email_verification_hash_expires, moment().add(self.config.security.email_verification_expiration_hours, 'hours').toDate());
-    obj = self.buildQuery(obj, self.config.user.email_verified, false);
-    return callback(null, obj);
-  });
-
-};
-
-/**
- * Generate a signup or password reset token
- * @function
- * @name generateToken
- * @param size - size
- * @param {Callback} callback - execute a callback after the token is generated
- * @return {Callback}
- */
-Adapter.prototype.generateToken = function(size, callback){
-  crypto.randomBytes(size, function(err, buf) {
-        var token = buf.toString('hex');
-        callback(err, token);
-      });
+  var now = moment().format("dddd, MMMM Do YYYY, h:mm:ss a");
+  var username = this.getVal(obj, this.config.user.username);
+  var hash = crypto.createHash('md5').update(username + now).digest('hex');
+  obj = this.buildQuery(obj, this.config.user.email_verification_hash, hash);
+  obj = this.buildQuery(obj, this.config.user.email_verification_hash_expires, moment().add(this.config.security.email_verification_expiration_hours, 'hours').toDate());
+  obj = this.buildQuery(obj, this.config.user.email_verified, false);
+  return callback(null, obj);
 };
 
 /**
@@ -429,6 +412,7 @@ Adapter.prototype.buildAccountSecurity = function (obj) {
  */
 Adapter.prototype.saveUser = function (callback) {
   this.db.insert(this.signup, function (err, doc) {
+    if(err) throw err;
     return callback(err, doc);
   });
 };
@@ -509,6 +493,7 @@ Adapter.prototype.resetCollection = function (callback) {
   this.db.remove({}, {
     multi: true
   }, function (err) {
+    if(err) throw err;
     callback(err);
   });
 };
