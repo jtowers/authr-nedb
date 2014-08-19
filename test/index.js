@@ -141,6 +141,24 @@ describe('default adapter', function () {
     });
 
     describe('utilities', function () {
+
+      it('should return null when username and password are supplied', function (done) {
+        should.not.exist(adapter.checkCredentials());
+        done();
+      });
+
+      it('should return null when username is missing', function (done) {
+        adapter.signup.account.username = null;
+        should.exist(adapter.checkCredentials());
+        done();
+      });
+
+      it('should return null when password is missing', function (done) {
+        adapter.signup.account.password = null;
+        should.exist(adapter.checkCredentials());
+        done();
+      });
+
       it('should be able to get the value of an object using a string indicating its path', function (done) {
         var username = adapter.getVal(signup_config, 'account.username');
         username.should.equal(signup_config.account.username);
@@ -185,6 +203,7 @@ describe('default adapter', function () {
           });
         });
       });
+
     });
     describe('db operations', function () {
       var saved_user;
@@ -204,11 +223,11 @@ describe('default adapter', function () {
                 throw err;
               }
               adapter.buildAccountSecurity(adapter.signup);
-              adapter.hash_password(function(){
+              adapter.hash_password(function () {
                 adapter.saveUser(function (err, user) {
-                saved_user = user;
-                done();
-              });
+                  saved_user = user;
+                  done();
+                });
               });
             });
 
@@ -222,10 +241,25 @@ describe('default adapter', function () {
         });
       });
       it('should be able to find duplicate users', function (done) {
-        adapter.isUsernameTaken(saved_user.account.username,function (isTaken) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
           isTaken.should.equal(true);
           done();
         });
+      });
+
+      it('should return null when username is not taken', function (done) {
+        adapter.isUsernameTaken('not_in_use', function (isTaken) {
+          isTaken.should.equal(false);
+          done();
+        });
+      });
+
+      it('should be able to check see if an email is verified', function (done) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
+          adapter.isEmailVerified().should.equal(false);
+          done();
+        });
+
       });
       it('should be able to retreive a verification hash', function (done) {
         adapter.findVerificationToken(saved_user.email.email_verification_hash, function (err, user) {
@@ -254,8 +288,40 @@ describe('default adapter', function () {
         });
 
       });
+
+      it('should return an error if the token is not found', function (done) {
+        adapter.findVerificationToken('notatoken', function (err, user) {
+          should.exist(err);
+          
+          err.should.equal(adapter.config.errmsg.token_not_found);
+          done();
+        });
+      });
       it('should return false if the account is not locked', function (done) {
-        adapter.isUsernameTaken(saved_user.account.username,function (isTaken) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
+          adapter.isAccountLocked(function (err, locked) {
+            should.not.exist(err);
+            locked.should.equal(false);
+            done();
+          });
+        });
+      });
+
+      it('should return true if the account is locked', function (done) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
+          adapter.user.account.locked.account_locked = true;
+          adapter.isAccountLocked(function (err, locked) {
+            should.exist(err);
+            err.err.should.equal(adapter.config.errmsg.account_locked);
+            done();
+          });
+        });
+      });
+
+      it('should return true if the account is locked but the lock is expired', function (done) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
+          adapter.user.account.locked.account_locked = true;
+          adapter.user.account.locked.account_locked_until = moment().add(-12, 'hours').toDate();
           adapter.isAccountLocked(function (err, locked) {
             should.not.exist(err);
             locked.should.equal(false);
@@ -265,7 +331,7 @@ describe('default adapter', function () {
       });
 
       it('should be able to lock an account', function (done) {
-        adapter.isUsernameTaken(saved_user.account.username,function (isTaken) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
           adapter.lockUserAccount(function (err) {
             should.exist(err);
             err.err.should.equal(adapter.config.errmsg.account_locked.replace('##i##', adapter.config.security.lock_account_for_minutes));
@@ -275,7 +341,7 @@ describe('default adapter', function () {
       });
 
       it('should be able to unlock an account', function (done) {
-        adapter.isUsernameTaken(saved_user.account.username,function (isTaken) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
           adapter.lockUserAccount(function (err) {
             adapter.unlockUserAccount(function () {
               adapter.user.account.locked.account_locked.should.equal(false);
@@ -287,7 +353,7 @@ describe('default adapter', function () {
       });
 
       it('should expire failed login attempts', function (done) {
-        adapter.isUsernameTaken(saved_user.account.username,function (isTaken) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
           adapter.user = adapter.buildQuery(adapter.user, adapter.config.user.account_failed_attempts, 4);
           adapter.user = adapter.buildQuery(adapter.user, adapter.config.user.account_last_failed_attempt, moment().add(-1, 'hour').toDate());
           adapter.failedAttemptsExpired(function (err, reset) {
@@ -297,8 +363,19 @@ describe('default adapter', function () {
         });
       });
 
+      it('should not expire attempts that aren\'t expired', function (done) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
+          adapter.user = adapter.buildQuery(adapter.user, adapter.config.user.account_failed_attempts, 4);
+          adapter.user = adapter.buildQuery(adapter.user, adapter.config.user.account_last_failed_attempt, moment().toDate());
+          adapter.failedAttemptsExpired(function (err, reset) {
+            adapter.user.account.locked.account_failed_attempts.should.equal(4);
+            done();
+          });
+        });
+      });
+
       it('should increment the number of failed attempts after a failed attempt', function (done) {
-        adapter.isUsernameTaken(saved_user.account.username,function (isTaken) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
           adapter.incrementFailedLogins(function () {
             adapter.user.account.locked.account_failed_attempts.should.equal(1);
             done();
@@ -307,7 +384,7 @@ describe('default adapter', function () {
       });
 
       it('should lock an account after the specified number of failed login attempts', function (done) {
-        adapter.isUsernameTaken(saved_user.account.username,function (isTaken) {
+        adapter.isUsernameTaken(saved_user.account.username, function (isTaken) {
           adapter.user = adapter.buildQuery(adapter.user, adapter.config.user.account_failed_attempts, adapter.config.security.max_failed_login_attempts);
           adapter.incrementFailedLogins(function () {
             adapter.user.account.locked.account_locked.should.equal(true);
@@ -316,18 +393,30 @@ describe('default adapter', function () {
         });
       });
 
-      it('should increment the number of failed attempts when a bad password is supplied', function(done){
-        adapter.isUsernameTaken(saved_user.account.username,function(){
-          adapter.comparePassword('not_really_it', function(err, doc){
+      it('should increment the number of failed attempts when a bad password is supplied', function (done) {
+        adapter.isUsernameTaken(saved_user.account.username, function () {
+          adapter.comparePassword('not_really_it', function (err, doc) {
             should.exist(err);
             err.remaining_attempts.should.equal(9);
             done();
           });
         });
       });
-      it('should return null when the password is correct', function(done){
-        adapter.isUsernameTaken(saved_user.account.username,function(){
-          adapter.comparePassword('test', function(err, doc){
+
+      it('should return an error when password incorrect and account locking is disabled', function (done) {
+        adapter.config.security.max_failed_login_attempts = 0;
+        adapter.isUsernameTaken(saved_user.account.username, function () {
+          adapter.comparePassword('not_really_it', function (err, doc) {
+            should.exist(err);
+            err.should.equal(adapter.config.errmsg.password_incorrect);
+            done();
+          });
+        });
+      });
+
+      it('should return null when the password is correct', function (done) {
+        adapter.isUsernameTaken(saved_user.account.username, function () {
+          adapter.comparePassword('test', function (err, doc) {
             should.not.exist(err);
             done();
           });

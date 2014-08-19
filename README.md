@@ -9,7 +9,7 @@ This module is required by authr and will be used automatically if you do not sp
 
 **Note:** This is an in-memory database only. As soon as your node app stops, the data will be lost. Do not use it in production.
 
-1. Install authr 
+1. Install authr
 
 `npm install authr`
 
@@ -30,8 +30,6 @@ authr.signUp(signup, function(user){
 ```
 
 ## Todo
-1. Add email verification
-2. Add login
-3. Add password recovery
-4. Add account suspension/deletion
+1. Add password recovery
+2. Add account suspension/deletion
 

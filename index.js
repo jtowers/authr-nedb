@@ -116,7 +116,7 @@ Adapter.prototype.buildSimpleQuery = function (key, value) {
  * @param {Function} cb - Run callback when finished connecting
  * @return {Function}
  */
-Adapter.prototype.isUsernameTaken = function (username,cb) {
+Adapter.prototype.isUsernameTaken = function (username, cb) {
   var self = this;
   var query = this.buildSimpleQuery(this.config.user.username, username);
   this.db.findOne(query, function (err, doc) {
@@ -125,14 +125,31 @@ Adapter.prototype.isUsernameTaken = function (username,cb) {
     }
 
     if(doc) {
-      
+
       self.user = doc;
+      
       return cb(true);
     } else {
       return cb(false);
     }
 
   });
+};
+
+/**
+ * Check to make sure the credentials were supplied
+ * @function
+ * @name checkCredentials
+ * @return {}
+ */
+Adapter.prototype.checkCredentials = function () {
+  username = this.getVal(this.signup, this.config.user.username);
+  password = this.getVal(this.signup, this.config.user.password);
+  if(!username || !password) {
+    return this.config.errmsg.un_and_pw_required;
+  } else {
+    return null;
+  }
 };
 
 /**
@@ -185,7 +202,7 @@ Adapter.prototype.comparePassword = function (supplied_password, callback) {
           return callback(err);
         });
       } else {
-        return callback(null);
+        return callback(self.config.errmsg.password_incorrect);
       }
     }
   });
@@ -349,6 +366,11 @@ Adapter.prototype.isAccountLocked = function (callback) {
 
 };
 
+Adapter.prototype.isEmailVerified = function(){
+ var isVerified = this.getVal(this.user, this.config.user.email_verified);
+  return isVerified;
+};
+
 /**
  * Create email verification code using the username and current datetime.
  * Sets expiration to now + number of hours defined in authr config (config.security.email_verification_expiration_hours)
@@ -412,7 +434,6 @@ Adapter.prototype.findVerificationToken = function (token, callback) {
       throw err;
     }
     if(!user) {
-
       return callback(self.config.errmsg.token_not_found, null);
     } else {
 
@@ -430,7 +451,8 @@ Adapter.prototype.findVerificationToken = function (token, callback) {
  */
 Adapter.prototype.verificationExpired = function () {
   var now = moment();
-  var expires = moment(this.user.email_verification_hash_expires);
+  expr = this.getVal(this.user, this.config.user.email_verification_hash_expires);
+  var expires = moment(expr);
   if(now.isAfter(expires)) {
     return true;
   } else {
@@ -448,13 +470,13 @@ Adapter.prototype.verificationExpired = function () {
 Adapter.prototype.verifyEmailAddress = function (callback) {
   this.user = this.buildQuery(this.user, this.config.user.email_verified, true);
   var self = this;
-  var username = this.getVal(this.user, this.config.user.email_address);
-  var find_query = JSON.parse('{"' + this.config.username + '":"' + username + '"}');
+  var username = this.getVal(this.user, this.config.user.username);
+  var find_query = this.buildSimpleQuery(this.config.user.username, username);
   this.db.update(find_query, this.user, function (err, user) {
     if(err) {
       throw err;
     }
-
+    
     callback(null, self.user);
   });
 };

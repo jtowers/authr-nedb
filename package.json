@@ -1,6 +1,6 @@
 {
   "name": "authr-nedb",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "nedb adapter for authr",
   "main": "index.js",
   "scripts": {
@@ -30,9 +30,16 @@
     "mocha": "*",
     "chai": "*",
     "jsdoc": "~3.3.0-alpha9",
-    "ink-docstrap": "~0.4.12"
+    "ink-docstrap": "~0.4.12",
+    "blanket": "~1.1.6"
   },
   "directories": {
     "test": "test"
-  }
+  },
+  "config": {
+      "blanket": {
+        "pattern": ["/index.js", "functions/"],
+        "data-cover-never": ["node_modules", "test"]
+      }
+    }
 }
