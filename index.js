@@ -185,6 +185,29 @@ Adapter.prototype.hash_password = function (callback) {
 };
 
 /**
+ * Hashes the new password using bcrypt and the settings in the authr config
+ * @function
+ * @name hash_new_password
+ * @param password
+ * @param {Callback} callback - run a callback when hashing is complete
+ * @return {Callback}
+ */
+Adapter.prototype.hash_new_password = function(password, callback){
+  var self = this;
+  bcrypt.genSalt(this.config.security.hash_salt_factor, function(err, salt){
+    if(err){
+      throw err;
+    }
+    bcrypt.hash(password, salt, function(err, hash){
+      self.user = self.buildQuery(self.user, self.config.user.password, hash);
+      callback(err, hash);
+    });
+  });
+};
+
+
+
+/**
  * Compare the supplied password with the stored hashed password
  * @function
  * @name comparePassword
@@ -343,6 +366,24 @@ Adapter.prototype.resetFailedLoginAttempts = function (callback) {
 };
 
 /**
+ * Reset password
+ * @function
+ * @name resetFailedLoginAttempts
+ * @param {Callback} - execute a callback after the attempts are reset
+ * @return {Callback}
+ */
+Adapter.prototype.resetPassword = function (callback) {
+  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(this.user, this.config.user.username));
+  this.db.update(query, this.user, function (err, doc) {
+    if(err) {
+      throw err;
+    }
+    if(!doc) throw new Exception('User could not be updated');
+    callback(err, doc);
+  });
+};
+
+/**
  * Check to see if the account is locked.
  * @function
  * @name isAccountLocked
@@ -422,6 +463,7 @@ Adapter.prototype.generateToken = function(size, callback){
  * @return {Callback}
  */
 Adapter.prototype.savePWResetToken = function(token, callback){
+  var self = this;
   this.user = this.buildQuery(this.user, this.config.user.password_reset_token, token);
   var hours_to_add = this.config.security.password_reset_token_expiration_hours;
   token_expiration = moment().add(hours_to_add, 'hours').toDate();
@@ -430,7 +472,7 @@ Adapter.prototype.savePWResetToken = function(token, callback){
   this.db.update(query, this.user, function(err, doc){
     if(err) throw err;
     if(!doc) throw new Exception('User was not be updated');
-    return callback(err, this.user);
+    return callback(err, self.user);
   });
 };
 
@@ -582,6 +624,28 @@ Adapter.prototype.getUserByEmail = function(email, callback){
   var self = this;
   var query = this.buildSimpleQuery(this.config.user.email_address, email);
 
+  this.db.findOne(query, function(err, doc){
+    if(err) throw err;
+    if(doc){
+      self.user = doc;
+      return callback(null, doc);
+    } else {
+      return callback(self.config.errmsg.username_not_found, null);
+    }
+  });
+};
+
+/**
+ * Find an account by username
+ * @function
+ * @name getUserByUsername
+ * @param {string} username - username address to look for
+ * @param {Callback} callback - callback to execute when finished
+ * @return {Callback}
+ */
+Adapter.prototype.getUserByUsername = function(username, callback){
+  var self = this;
+  var query = this.buildSimpleQuery(this.config.user.username, username);
   this.db.findOne(query, function(err, doc){
     if(err) throw err;
     if(doc){

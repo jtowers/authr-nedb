@@ -88,6 +88,8 @@ describe('default adapter', function () {
         user: {
           username: 'account.username',
           password: 'account.password',
+          password_reset_token: 'account.password_reset_token',
+          password_reset_token_expiration: 'account.password_reset_token_expiration',
           account_locked: 'account.locked.account_locked',
           account_locked_until: 'account.locked.account_locked_until',
           account_failed_attempts: 'account.locked.account_failed_attempts',
@@ -171,6 +173,18 @@ describe('default adapter', function () {
           should.not.exist(err);
           done();
         });
+      });
+
+      it('should return no error when credentials are supplied', function (done) {
+        should.not.exist(adapter.checkCredentials());
+        done();
+      });
+
+      it('should return an error message when username or password are missing', function (done) {
+        adapter.signup.account.username = null;
+        should.exist(adapter.checkCredentials());
+        adapter.checkCredentials().should.equal(adapter.config.errmsg.un_and_pw_required);
+        done();
       });
 
       it('should be able to save users', function (done) {
@@ -326,6 +340,7 @@ describe('default adapter', function () {
           });
         });
       });
+
       it('should return null when the password is correct', function (done) {
         adapter.isValueTaken(adapter.signup, adapter.config.user.username, function () {
           adapter.comparePassword('test', function (err, doc) {
@@ -333,6 +348,53 @@ describe('default adapter', function () {
             done();
           });
         });
+      });
+      it('should be able to save a password reset token', function (done) {
+        adapter.getUserByUsername('test@test.com', function (err, user) {
+          if(err) throw err;
+          adapter.savePWResetToken('dummytoken', function (err, user) {
+            done();
+          });
+        });
+      });
+
+      it('should be able to find a password reset token', function (done) {
+        adapter.getUserByUsername('test@test.com', function (err, user) {
+          should.not.exist(err);
+          adapter.generateToken(20, function(err, token){
+            should.not.exist(err);
+            adapter.savePWResetToken(token, function (err, user) {
+              should.not.exist(err);
+            adapter.findResetToken(user.account.password_reset_token, function (err, user) {
+              should.not.exist(err);
+              done();
+            });
+
+          });
+          });
+        });
+      });
+
+      it('should be able to hash a new password on password update', function (done) {
+        adapter.getUserByUsername('test@test.com', function (err, user) {
+          adapter.hash_new_password('new_password', function (err, user) {
+            should.not.exist(err);
+            done();
+          });
+        });
+
+      });
+      it('should be able to save a new password on password update', function (done) {
+        adapter.getUserByUsername('test@test.com', function (err, user) {
+          adapter.hash_new_password('new_password', function (err, user) {
+            adapter.resetPassword(function (err, user) {
+              should.not.exist(err);
+              done();
+            });
+
+          });
+        });
+
       });
     });
   });
