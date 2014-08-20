@@ -182,12 +182,18 @@ Adapter.prototype.buildSimpleQuery = function (key, value) {
  * Check to see if the username is taken
  * @function
  * @name isUsernameTaken
+ * @param {Object} object - object to query
+ * @path {Object}  path - path to the value
  * @param {Function} cb - Run callback when finished connecting
  * @return {Function}
  */
-Adapter.prototype.isUsernameTaken = function (username, cb) {
+Adapter.prototype.isValueTaken = function (object, path, cb) {
   var self = this;
-  var query = this.buildSimpleQuery(this.config.user.username, username);
+  var val = this.getVal(object, path);
+  if(val){
+    val.toLowerCase();
+  }
+  var query = this.buildSimpleQuery(path, val);
   this.db.findOne(query, function (err, doc) {
     if(err) {
       throw err;
@@ -209,7 +215,7 @@ Adapter.prototype.isUsernameTaken = function (username, cb) {
  * Check to make sure the credentials were supplied
  * @function
  * @name checkCredentials
- * @return {}
+ * @return {null|String}
  */
 Adapter.prototype.checkCredentials = function () {
   username = this.getVal(this.signup, this.config.user.username);
@@ -233,12 +239,11 @@ Adapter.prototype.hash_password = function (callback) {
   var self = this;
   bcrypt.genSalt(this.config.security.hash_salt_factor, function (err, salt) {
     if(err) {
-      callback(err);
+      throw err;
     } else {
       bcrypt.hash(password, salt, function (err, hash) {
         if(err) {
           throw err;
-          //callback(err);
         } else {
           self.signup = self.buildQuery(self.signup, self.config.user.password, hash);
           callback(err, hash);
@@ -471,9 +476,31 @@ Adapter.prototype.doEmailVerification = function (obj, callback) {
  */
 Adapter.prototype.generateToken = function(size, callback){
   crypto.randomBytes(size, function(err, buf) {
+    if(err) throw err;
         var token = buf.toString('hex');
         callback(err, token);
       });
+};
+
+/**
+ * Persist the password reset token to the database.
+ * @function
+ * @name savePWResetToken
+ * @param {String} token - the token to save
+ * @param {Callback} callback - the callback to run atfter the token is saved
+ * @return {Callback}
+ */
+Adapter.prototype.savePWResetToken = function(token, callback){
+  this.user = this.buildQuery(this.user, this.config.user.password_reset_token, token);
+  var hours_to_add = this.config.security.password_reset_token_expiration_hours;
+  token_expiration = moment().add(hours_to_add, 'hours').toDate();
+  this.user = this.buildQuery(this.user, this.config.user.password_reset_token_expiration, token_expiration);
+  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(this.user, this.config.user.username));
+  this.db.update(query, this.user, function(err, doc){
+    if(err) throw err;
+    if(!doc) throw new Exception('User was not be updated');
+    return callback(err, this.user);
+  });
 };
 
 /**
@@ -498,6 +525,7 @@ Adapter.prototype.buildAccountSecurity = function (obj) {
  */
 Adapter.prototype.saveUser = function (callback) {
   this.db.insert(this.signup, function (err, doc) {
+    if(err) throw err;
     return callback(err, doc);
   });
 };
@@ -529,15 +557,59 @@ Adapter.prototype.findVerificationToken = function (token, callback) {
   });
 };
 
+
 /**
- * Check to see if the token is expired
+ * Looks for user account using password reset token
  * @function
- * @name verificationExpired
+ * @name findVerificationToken
+ * @param {String} token - reset token to look for
+ * @param {Callback} callback - execute callback when account is found
+ * @return {Callback}
+ */
+Adapter.prototype.findResetToken = function (token, callback) {
+  var self = this;
+
+  var query = this.buildSimpleQuery(this.config.user.password_reset_token, token);
+
+  this.db.findOne(query, function (err, user) {
+    if(err) {
+      throw err;
+    }
+    if(!user) {
+      return callback(self.config.errmsg.token_not_found, null);
+    } else {
+      self.user = user;
+      return callback(null, user);
+    }
+  });
+};
+
+/**
+ * Check to see if the signup token is expired
+ * @function
+ * @name emailVerificationExpired
  * @return {Boolean}
  */
-Adapter.prototype.verificationExpired = function () {
+Adapter.prototype.emailVerificationExpired = function () {
   var now = moment();
   expr = this.getVal(this.user, this.config.user.email_verification_hash_expires);
+  var expires = moment(expr);
+  if(now.isAfter(expires)) {
+    return true;
+  } else {
+    return false;
+  }
+};
+
+/**
+ * Check to see if the password reset token is expired
+ * @function
+ * @name resetTokenExpired
+ * @return {Boolean}
+ */
+Adapter.prototype.resetTokenExpired = function () {
+  var now = moment();
+  expr = this.getVal(this.user, this.config.user.password_reset_token_expiration);
   var expires = moment(expr);
   if(now.isAfter(expires)) {
     return true;
@@ -568,6 +640,29 @@ Adapter.prototype.verifyEmailAddress = function (callback) {
 };
 
 /**
+ * Find an account by email address
+ * @function
+ * @name getUserByEmail
+ * @param {string} email - email address to look for
+ * @param {Callback} callback - callback to execute when finished
+ * @return {Callback}
+ */
+Adapter.prototype.getUserByEmail = function(email, callback){
+  var self = this;
+  var query = this.buildSimpleQuery(this.config.user.email_address, email);
+
+  this.db.findOne(query, function(err, doc){
+    if(err) throw err;
+    if(doc){
+      self.user = doc;
+      return callback(null, doc);
+    } else {
+      return callback(self.config.errmsg.username_not_found, null);
+    }
+  });
+};
+
+/**
  * Remove the collection. Mostly used for testing. Will probably find a use for it.
  * @function
  * @name resetCollection
@@ -578,6 +673,7 @@ Adapter.prototype.resetCollection = function (callback) {
   this.db.remove({}, {
     multi: true
   }, function (err) {
+    if(err) throw err;
     callback(err);
   });
 };
@@ -598,7 +694,7 @@ module.exports = Adapter;</pre>
 					
 		<span class="jsdoc-message">
 		Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.0-alpha9</a>
-		on Tue Aug 19th 2014 using the <a
+		on Wed Aug 20th 2014 using the <a
 			href="https://github.com/terryweiss/docstrap">DocStrap template</a>.
 		</span>
 				</footer>

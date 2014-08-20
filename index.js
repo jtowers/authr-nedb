@@ -113,6 +113,8 @@ Adapter.prototype.buildSimpleQuery = function (key, value) {
  * Check to see if the username is taken
  * @function
  * @name isUsernameTaken
+ * @param {Object} object - object to query
+ * @path {Object}  path - path to the value
  * @param {Function} cb - Run callback when finished connecting
  * @return {Function}
  */
@@ -405,9 +407,31 @@ Adapter.prototype.doEmailVerification = function (obj, callback) {
  */
 Adapter.prototype.generateToken = function(size, callback){
   crypto.randomBytes(size, function(err, buf) {
+    if(err) throw err;
         var token = buf.toString('hex');
         callback(err, token);
       });
+};
+
+/**
+ * Persist the password reset token to the database.
+ * @function
+ * @name savePWResetToken
+ * @param {String} token - the token to save
+ * @param {Callback} callback - the callback to run atfter the token is saved
+ * @return {Callback}
+ */
+Adapter.prototype.savePWResetToken = function(token, callback){
+  this.user = this.buildQuery(this.user, this.config.user.password_reset_token, token);
+  var hours_to_add = this.config.security.password_reset_token_expiration_hours;
+  token_expiration = moment().add(hours_to_add, 'hours').toDate();
+  this.user = this.buildQuery(this.user, this.config.user.password_reset_token_expiration, token_expiration);
+  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(this.user, this.config.user.username));
+  this.db.update(query, this.user, function(err, doc){
+    if(err) throw err;
+    if(!doc) throw new Exception('User was not be updated');
+    return callback(err, this.user);
+  });
 };
 
 /**
@@ -464,15 +488,59 @@ Adapter.prototype.findVerificationToken = function (token, callback) {
   });
 };
 
+
 /**
- * Check to see if the token is expired
+ * Looks for user account using password reset token
  * @function
- * @name verificationExpired
+ * @name findVerificationToken
+ * @param {String} token - reset token to look for
+ * @param {Callback} callback - execute callback when account is found
+ * @return {Callback}
+ */
+Adapter.prototype.findResetToken = function (token, callback) {
+  var self = this;
+
+  var query = this.buildSimpleQuery(this.config.user.password_reset_token, token);
+
+  this.db.findOne(query, function (err, user) {
+    if(err) {
+      throw err;
+    }
+    if(!user) {
+      return callback(self.config.errmsg.token_not_found, null);
+    } else {
+      self.user = user;
+      return callback(null, user);
+    }
+  });
+};
+
+/**
+ * Check to see if the signup token is expired
+ * @function
+ * @name emailVerificationExpired
  * @return {Boolean}
  */
-Adapter.prototype.verificationExpired = function () {
+Adapter.prototype.emailVerificationExpired = function () {
   var now = moment();
   expr = this.getVal(this.user, this.config.user.email_verification_hash_expires);
+  var expires = moment(expr);
+  if(now.isAfter(expires)) {
+    return true;
+  } else {
+    return false;
+  }
+};
+
+/**
+ * Check to see if the password reset token is expired
+ * @function
+ * @name resetTokenExpired
+ * @return {Boolean}
+ */
+Adapter.prototype.resetTokenExpired = function () {
+  var now = moment();
+  expr = this.getVal(this.user, this.config.user.password_reset_token_expiration);
   var expires = moment(expr);
   if(now.isAfter(expires)) {
     return true;
@@ -499,6 +567,29 @@ Adapter.prototype.verifyEmailAddress = function (callback) {
     }
 
     callback(null, self.user);
+  });
+};
+
+/**
+ * Find an account by email address
+ * @function
+ * @name getUserByEmail
+ * @param {string} email - email address to look for
+ * @param {Callback} callback - callback to execute when finished
+ * @return {Callback}
+ */
+Adapter.prototype.getUserByEmail = function(email, callback){
+  var self = this;
+  var query = this.buildSimpleQuery(this.config.user.email_address, email);
+
+  this.db.findOne(query, function(err, doc){
+    if(err) throw err;
+    if(doc){
+      self.user = doc;
+      return callback(null, doc);
+    } else {
+      return callback(self.config.errmsg.username_not_found, null);
+    }
   });
 };
 

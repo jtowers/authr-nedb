@@ -1,5 +1,6 @@
 var should = require('chai').should();
-var Adapter = require('../index');
+var blanket = require('blanket');
+var Adapter = require('../index.js');
 var moment = require('moment');
 describe('default adapter', function () {
   describe('constructor', function () {
@@ -237,7 +238,7 @@ describe('default adapter', function () {
 
       it('should be able to check the expiration date on an a verification hash', function (done) {
         adapter.findVerificationToken(saved_user.email.email_verification_hash, function (err, user) {
-          isExpired = adapter.verificationExpired(adapter.user);
+          isExpired = adapter.emailVerificationExpired(adapter.user);
 
           isExpired.should.equal(false);
           done();
@@ -325,16 +326,6 @@ describe('default adapter', function () {
           });
         });
       });
-      it('should return an error if the password is incorrect and acocunt locking is off', function (done) {
-        adapter.config.security.max_failed_login_attempts = 0;
-        adapter.isValueTaken(adapter.signup, adapter.config.user.username, function () {
-          adapter.comparePassword('not_really_it', function (err, doc) {
-            should.exist(err);
-            err.should.equal(adapter.config.errmsg.password_incorrect);
-            done();
-          });
-        });
-      });
       it('should return null when the password is correct', function (done) {
         adapter.isValueTaken(adapter.signup, adapter.config.user.username, function () {
           adapter.comparePassword('test', function (err, doc) {
@@ -342,16 +333,6 @@ describe('default adapter', function () {
             done();
           });
         });
-      });
-      it('should be able to check credentials', function(done){
-        should.not.exist(adapter.checkCredentials());
-        done();
-      });
-      it('should be able to check credentials', function(done){
-        adapter.signup.account.password = null;
-        should.exist(adapter.checkCredentials());
-        adapter.checkCredentials().should.equal(adapter.config.errmsg.un_and_pw_required);
-        done();
       });
     });
   });
