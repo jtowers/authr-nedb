@@ -1,7 +1,7 @@
 authr-nedb
 =====
 ## Introduction
-This is the default adapter used for authr.
+This is the default adapter used for [authr](https://www.npmjs.org/package/authr).
 
 ## Usage
 
@@ -30,6 +30,5 @@ authr.signUp(signup, function(user){
 ```
 
 ## Todo
-1. Add password recovery
-2. Add account suspension/deletion
+1. Refactor
 

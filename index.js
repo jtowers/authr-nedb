@@ -222,7 +222,7 @@ Adapter.prototype.comparePassword = function (supplied_password, callback) {
   bcrypt.compare(supplied_password, db_pass, function (err, match) {
 
     if(match) {
-      return callback(null, user);
+      return callback(null, self.user);
     } else {
 
       if(self.config.security.max_failed_login_attempts) {
@@ -653,6 +653,27 @@ Adapter.prototype.getUserByUsername = function(username, callback){
       return callback(null, doc);
     } else {
       return callback(self.config.errmsg.username_not_found, null);
+    }
+  });
+};
+
+/**
+ * Delete a user account
+ * @function
+ * @name deleteAccount
+ * @param {String} username
+ * @param {Callback} callback - callback to run when finished
+ * @return {Callback}
+ */
+Adapter.prototype.deleteAccount = function(username, callback){
+  var self = this;
+  var query = this.buildSimpleQuery(this.config.user.username, username);
+  this.db.remove(query, {}, function(err, docs){
+    if(err) throw Err;
+    if(!docs){
+      return callback(new Exception('User could not be deleted'));
+    } else {
+      callback(null, self.user);
     }
   });
 };

@@ -360,11 +360,15 @@ describe('default adapter', function () {
 
       it('should be able to find a password reset token', function (done) {
         adapter.getUserByUsername('test@test.com', function (err, user) {
+
           should.not.exist(err);
           adapter.generateToken(20, function(err, token){
+   
             should.not.exist(err);
             adapter.savePWResetToken(token, function (err, user) {
+             
               should.not.exist(err);
+           
             adapter.findResetToken(user.account.password_reset_token, function (err, user) {
               should.not.exist(err);
               done();
@@ -395,6 +399,19 @@ describe('default adapter', function () {
           });
         });
 
+      });
+      it('should be able to delete a user', function(done){
+        adapter.getUserByUsername('test@test.com', function(err, user){
+          adapter.deleteAccount('test@test.com', function(err, user){
+          should.not.exist(err);
+          adapter.getUserByUsername(user.username, function(err, user){
+            should.exist(err);
+            should.not.exist(user);
+            done();
+          });
+        });
+        });
+        
       });
     });
   });
