@@ -38,6 +38,17 @@ Adapter.prototype.disconnect = function (callback) {
   return callback();
 };
 
+/**
+ * Passes the signup object to the adapter so the adapter utilities can access them
+ * @function
+ * @name signupConfig
+ * @param {Object} - User object to be persisted to the database
+ * @example
+ * adapter.signUpConfig({account: {username: 'some_user', password: 'some_password'}});
+ */
+Adapter.prototype.signupConfig = function (signup) {
+  this.signup = signup;
+};
 
 /**
  * Look up a key's value when given the path as a string mimicing dot-notation.
@@ -104,7 +115,7 @@ Adapter.prototype.buildSimpleQuery = function (key, value) {
  * @name isUsernameTaken
  * @param {Object} object - object to query
  * @path {Object}  path - path to the value
- * @param {Function} cb - Run callback after the query is run.
+ * @param {Function} cb - Run callback when finished connecting
  * @return {Function}
  */
 Adapter.prototype.isValueTaken = function (object, path, callback) {
@@ -132,16 +143,15 @@ Adapter.prototype.isValueTaken = function (object, path, callback) {
  * Check to make sure the credentials were supplied
  * @function
  * @name checkCredentials
- * @param {Object} object - object to pull credentials from (signup or login object)
- * @param {Callback} callback - callback to execute when finished
+ * @return {null|String}
  */
-Adapter.prototype.checkCredentials = function (object, callback) {
-  username = this.getVal(object, this.config.user.username);
-  password = this.getVal(object, this.config.user.password);
+Adapter.prototype.checkCredentials = function (signup, callback) {
+  username = this.getVal(signup, this.config.user.username);
+  password = this.getVal(signup, this.config.user.password);
   if(!username || !password) {
-    return callback(this.config.errmsg.un_and_pw_required, object);
+    return callback(this.config.errmsg.un_and_pw_required, signup);
   } else {
-    return callback(null, object);
+    return callback(null, signup);
   }
 };
 
@@ -412,7 +422,7 @@ Adapter.prototype.isEmailVerified = function () {
  * @function
  * @name doEmailVerification
  * @param {Object} obj - Object to modify
- * @param {Callback} callback - Run a callback after the token is generated
+ * @param {Callback} callback - Run a callback when finished
  * @return {Callback}
  */
 Adapter.prototype.doEmailVerification = function (obj, callback) {
@@ -483,7 +493,6 @@ Adapter.prototype.buildAccountSecurity = function (obj) {
  * Saves the user saved in this.signup. Callback returns any errors and the user, if successfully inserted
  * @function
  * @name saveUser
- * @param {Object} user - user to persist to the database
  * @param {Callback} callback - Run a callback after the user has been inserted
  * @return {Callback}
  */
@@ -508,13 +517,11 @@ Adapter.prototype.findVerificationToken = function (token, callback) {
 
   this.db.findOne(query, function (err, user) {
     if(err) {
-      throw err;
+      return callback(err);
     }
     if(!user) {
       return callback(self.config.errmsg.token_not_found, null);
     } else {
-
-      self.user = user;
       return callback(null, user);
     }
   });
@@ -553,9 +560,9 @@ Adapter.prototype.findResetToken = function (token, callback) {
  * @name emailVerificationExpired
  * @return {Boolean}
  */
-Adapter.prototype.emailVerificationExpired = function () {
+Adapter.prototype.emailVerificationExpired = function (user) {
   var now = moment();
-  expr = this.getVal(this.user, this.config.user.email_verification_hash_expires);
+  expr = this.getVal(user, this.config.user.email_verification_hash_expires);
   var expires = moment(expr);
   if(now.isAfter(expires)) {
     return true;
@@ -588,17 +595,13 @@ Adapter.prototype.resetTokenExpired = function () {
  * @param {Callback} callback - Execute a callback when done inserting
  * @return {Callback} callback
  */
-Adapter.prototype.verifyEmailAddress = function (callback) {
-  this.user = this.buildQuery(this.user, this.config.user.email_verified, true);
+Adapter.prototype.verifyEmailAddress = function (user, callback) {
+  user = this.buildQuery(user, this.config.user.email_verified, true);
   var self = this;
-  var username = this.getVal(this.user, this.config.user.username);
+  var username = this.getVal(user, this.config.user.username);
   var find_query = this.buildSimpleQuery(this.config.user.username, username);
-  this.db.update(find_query, this.user, function (err, user) {
-    if(err) {
-      throw err;
-    }
-
-    callback(null, self.user);
+  this.db.update(find_query, user, function (err, user) {
+    callback(err, user);
   });
 };
 

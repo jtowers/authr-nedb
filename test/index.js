@@ -134,7 +134,6 @@ describe('default adapter', function () {
 
     });
 
-
     describe('utilities', function () {
       it('should be able to get the value of an object using a string indicating its path', function (done) {
         var username = adapter.getVal(signup_config, 'account.username');
@@ -169,20 +168,20 @@ describe('default adapter', function () {
       });
 
       it('should return no error when credentials are supplied', function (done) {
-        adapter.checkCredentials(signup_config, function(err, user){
+        adapter.checkCredentials(signup_config, function (err, user) {
           should.not.exist(err);
-        done();
+          done();
         });
-        
+
       });
       it('should return no error when credentials are supplied', function (done) {
         signup_config.account.username = null;
-        adapter.checkCredentials(signup_config, function(err, user){
+        adapter.checkCredentials(signup_config, function (err, user) {
           should.exist(err);
           err.should.equal(adapter.config.errmsg.un_and_pw_required);
-        done();
+          done();
         });
-        
+
       });
 
       it('should be able to save users', function (done) {
@@ -208,23 +207,20 @@ describe('default adapter', function () {
             password: 'test'
           }
         };
-        
 
-            adapter.doEmailVerification(user, function (err, user) {
-              if(err) {
-                throw err;
-              }
-              adapter.buildAccountSecurity(user);
-              adapter.hashPassword(user, adapter.config.user.password, function () {
-                adapter.saveUser(user, function (err, user) {
-                  saved_user = user;
-                  done();
-                });
-              });
+        adapter.doEmailVerification(user, function (err, user) {
+          if(err) {
+            throw err;
+          }
+          adapter.buildAccountSecurity(user);
+          adapter.hashPassword(user, adapter.config.user.password, function () {
+            adapter.saveUser(user, function (err, user) {
+              saved_user = user;
+              done();
             });
+          });
+        });
 
-         
-        
       });
 
       afterEach(function (done) {
@@ -248,7 +244,7 @@ describe('default adapter', function () {
 
       it('should be able to check the expiration date on an a verification hash', function (done) {
         adapter.findVerificationToken(saved_user.email.email_verification_hash, function (err, user) {
-          isExpired = adapter.emailVerificationExpired(adapter.user);
+          isExpired = adapter.emailVerificationExpired(saved_user);
 
           isExpired.should.equal(false);
           done();
@@ -256,13 +252,12 @@ describe('default adapter', function () {
       });
 
       it('should be able to mark email_verified as true', function (done) {
-        adapter.findVerificationToken(saved_user.email.email_verification_hash, function (err, user) {
-          adapter.verifyEmailAddress(function (err, user) {
-            should.exist(user);
-            user.email.email_verified.should.equal(true);
-            done();
-          });
+        
+        adapter.verifyEmailAddress(saved_user, function(err, user){
+          should.exist(user);
+          done();
         });
+
 
       });
       it('should return false if the account is not locked', function (done) {
@@ -358,19 +353,19 @@ describe('default adapter', function () {
         adapter.getUserByUsername('test@test.com', function (err, user) {
 
           should.not.exist(err);
-          adapter.generateToken(20, function(err, token){
-   
+          adapter.generateToken(20, function (err, token) {
+
             should.not.exist(err);
             adapter.savePWResetToken(token, function (err, user) {
-             
-              should.not.exist(err);
-           
-            adapter.findResetToken(user.account.password_reset_token, function (err, user) {
-              should.not.exist(err);
-              done();
-            });
 
-          });
+              should.not.exist(err);
+
+              adapter.findResetToken(user.account.password_reset_token, function (err, user) {
+                should.not.exist(err);
+                done();
+              });
+
+            });
           });
         });
       });
@@ -396,18 +391,18 @@ describe('default adapter', function () {
         });
 
       });
-      it('should be able to delete a user', function(done){
-        adapter.getUserByUsername('test@test.com', function(err, user){
-          adapter.deleteAccount('test@test.com', function(err, user){
-          should.not.exist(err);
-          adapter.getUserByUsername(user.username, function(err, user){
-            should.exist(err);
-            should.not.exist(user);
-            done();
+      it('should be able to delete a user', function (done) {
+        adapter.getUserByUsername('test@test.com', function (err, user) {
+          adapter.deleteAccount('test@test.com', function (err, user) {
+            should.not.exist(err);
+            adapter.getUserByUsername(user.username, function (err, user) {
+              should.exist(err);
+              should.not.exist(user);
+              done();
+            });
           });
         });
-        });
-        
+
       });
     });
   });
