@@ -38,17 +38,6 @@ Adapter.prototype.disconnect = function (callback) {
   return callback();
 };
 
-/**
- * Passes the signup object to the adapter so the adapter utilities can access them
- * @function
- * @name signupConfig
- * @param {Object} - User object to be persisted to the database
- * @example
- * adapter.signUpConfig({account: {username: 'some_user', password: 'some_password'}});
- */
-Adapter.prototype.signupConfig = function (signup) {
-  this.signup = signup;
-};
 
 /**
  * Look up a key's value when given the path as a string mimicing dot-notation.
@@ -115,10 +104,10 @@ Adapter.prototype.buildSimpleQuery = function (key, value) {
  * @name isUsernameTaken
  * @param {Object} object - object to query
  * @path {Object}  path - path to the value
- * @param {Function} cb - Run callback when finished connecting
+ * @param {Function} cb - Run callback after the query is run.
  * @return {Function}
  */
-Adapter.prototype.isValueTaken = function (object, path, cb) {
+Adapter.prototype.isValueTaken = function (object, path, callback) {
   var self = this;
   var val = this.getVal(object, path);
   if(val){
@@ -127,16 +116,13 @@ Adapter.prototype.isValueTaken = function (object, path, cb) {
   var query = this.buildSimpleQuery(path, val);
   this.db.findOne(query, function (err, doc) {
     if(err) {
-      throw err;
+      callback(err, null);
     }
 
     if(doc) {
-
-      self.user = doc;
-
-      return cb(true);
+      callback(null, true);
     } else {
-      return cb(false);
+      return callback(null, false);
     }
 
   });
@@ -146,38 +132,41 @@ Adapter.prototype.isValueTaken = function (object, path, cb) {
  * Check to make sure the credentials were supplied
  * @function
  * @name checkCredentials
- * @return {null|String}
+ * @param {Object} object - object to pull credentials from (signup or login object)
+ * @param {Callback} callback - callback to execute when finished
  */
-Adapter.prototype.checkCredentials = function () {
-  username = this.getVal(this.signup, this.config.user.username);
-  password = this.getVal(this.signup, this.config.user.password);
+Adapter.prototype.checkCredentials = function (object, callback) {
+  username = this.getVal(object, this.config.user.username);
+  password = this.getVal(object, this.config.user.password);
   if(!username || !password) {
-    return this.config.errmsg.un_and_pw_required;
+    return callback(this.config.errmsg.un_and_pw_required, object);
   } else {
-    return null;
+    return callback(null, object);
   }
 };
 
 /**
- * Hashes the password using bcrypt and the settings specified in the authr config
+ * Hashes a password using a path in a given object as the value
  * @function
- * @name hash_password
- * @param {Callback} callback - run a callback when hashing is complete
+ * @name hashPassword
+ * @param {Object} object - object to pull the password from and save the hash back to
+ * @param {String} path - path to the password field
+ * @param {Callback} callback - return error and/or object with hashed password when finished
  * @return {Callback}
  */
-Adapter.prototype.hash_password = function (callback) {
-  var password = this.getVal(this.signup, this.config.user.password);
+Adapter.prototype.hashPassword = function (object, path, callback) {
+  var password = this.getVal(object, path);
   var self = this;
   bcrypt.genSalt(this.config.security.hash_salt_factor, function (err, salt) {
     if(err) {
-      throw err;
+      return callback(err);
     } else {
       bcrypt.hash(password, salt, function (err, hash) {
         if(err) {
-          throw err;
+         return callback(err);
         } else {
-          self.signup = self.buildQuery(self.signup, self.config.user.password, hash);
-          callback(err, hash);
+          object = self.buildQuery(object, path, hash);
+          return callback(err, object);
         }
       });
     }
@@ -423,7 +412,7 @@ Adapter.prototype.isEmailVerified = function () {
  * @function
  * @name doEmailVerification
  * @param {Object} obj - Object to modify
- * @param {Callback} callback - Run a callback when finished
+ * @param {Callback} callback - Run a callback after the token is generated
  * @return {Callback}
  */
 Adapter.prototype.doEmailVerification = function (obj, callback) {
@@ -487,18 +476,19 @@ Adapter.prototype.buildAccountSecurity = function (obj) {
   obj = this.buildQuery(obj, this.config.user.account_locked_until, null);
   obj = this.buildQuery(obj, this.config.user.account_failed_attempts, 0);
   obj = this.buildQuery(obj, this.config.user.account_last_failed_attempt, null);
+  return obj;
 };
 
 /**
  * Saves the user saved in this.signup. Callback returns any errors and the user, if successfully inserted
  * @function
  * @name saveUser
+ * @param {Object} user - user to persist to the database
  * @param {Callback} callback - Run a callback after the user has been inserted
  * @return {Callback}
  */
-Adapter.prototype.saveUser = function (callback) {
-  this.db.insert(this.signup, function (err, doc) {
-    if(err) throw err;
+Adapter.prototype.saveUser = function (user, callback) {
+  this.db.insert(user, function (err, doc) {
     return callback(err, doc);
   });
 };
