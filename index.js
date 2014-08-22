@@ -234,8 +234,7 @@ Adapter.prototype.comparePassword = function (user, login, callback) {
     }
   });
   } else {
-    console.log(db_pass);
-    console.log(supplied_pass);
+
     if(db_pass === supplied_pass){
       return callback(null, user);
     } else {
@@ -477,17 +476,20 @@ Adapter.prototype.generateToken = function(size, callback){
  * @param {Callback} callback - the callback to run atfter the token is saved
  * @return {Callback}
  */
-Adapter.prototype.savePWResetToken = function(token, callback){
+Adapter.prototype.savePWResetToken = function(user, token, callback){
   var self = this;
-  this.user = this.buildQuery(this.user, this.config.user.password_reset_token, token);
+  user = this.buildQuery(user, this.config.user.password_reset_token, token);
   var hours_to_add = this.config.security.password_reset_token_expiration_hours;
   token_expiration = moment().add(hours_to_add, 'hours').toDate();
-  this.user = this.buildQuery(this.user, this.config.user.password_reset_token_expiration, token_expiration);
-  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(this.user, this.config.user.username));
-  this.db.update(query, this.user, function(err, doc){
+  user = this.buildQuery(user, this.config.user.password_reset_token_expiration, token_expiration);
+  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
+  this.db.update(query, user, function(err, doc){
     if(err) throw err;
-    if(!doc) throw new Exception('User was not be updated');
-    return callback(err, self.user);
+    if(!doc){
+      return callback('User could not be updated');
+    } else {
+      return callback(err, user);
+    }
   });
 };
 
@@ -636,7 +638,6 @@ Adapter.prototype.getUserByEmail = function(email, callback){
   this.db.findOne(query, function(err, doc){
     if(err) throw err;
     if(doc){
-      self.user = doc;
       return callback(null, doc);
     } else {
       return callback(self.config.errmsg.username_not_found, null);
