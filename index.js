@@ -131,7 +131,7 @@ Adapter.prototype.isValueTaken = function (object, path, callback) {
     }
 
     if(doc) {
-      callback(null, true);
+      callback(null, doc);
     } else {
       return callback(null, false);
     }
@@ -213,26 +213,42 @@ Adapter.prototype.hash_new_password = function(password, callback){
  * @param {Callback} callback - execute callback after the comparison
  * @return {Callback}
  */
-Adapter.prototype.comparePassword = function (supplied_password, callback) {
-
+Adapter.prototype.comparePassword = function (user, login, callback) {
   var self = this;
-  var db_pass = this.getVal(this.user, this.config.user.password);
-
-  bcrypt.compare(supplied_password, db_pass, function (err, match) {
+  var db_pass = this.getVal(user, this.config.user.password);
+  var supplied_pass = this.getVal(login, this.config.user.password);
+  if(this.config.security.hash_password){
+      bcrypt.compare(supplied_pass, db_pass, function (err, match) {
 
     if(match) {
-      return callback(null, self.user);
+      return callback(null, user);
     } else {
 
       if(self.config.security.max_failed_login_attempts) {
-        self.incrementFailedLogins(function (err) {
-          return callback(err);
+        self.incrementFailedLogins(user, function (err) {
+          return callback(err, user);
         });
       } else {
         return callback(self.config.errmsg.password_incorrect);
       }
     }
   });
+  } else {
+    console.log(db_pass);
+    console.log(supplied_pass);
+    if(db_pass === supplied_pass){
+      return callback(null, user);
+    } else {
+      if(self.config.security.max_failed_login_attempts){
+        this.incrementFailedLogins(user, function(err){
+          return callback(err, user);
+        });
+      } else {
+        return callback(self.config.errmsg.password_incorrect, user);
+      }
+    }
+  }
+
 };
 
 /**
@@ -242,30 +258,30 @@ Adapter.prototype.comparePassword = function (supplied_password, callback) {
  * @param {Callback} callback - execute a callback after the function runs
  * @return {Callback}
  */
-Adapter.prototype.incrementFailedLogins = function (callback) {
-  var current_failed_logins = this.getVal(this.user, this.config.user.account_failed_attempts) + 1;
+Adapter.prototype.incrementFailedLogins = function (user, callback) {
+  var current_failed_logins = this.getVal(user, this.config.user.account_failed_attempts) + 1;
   var max_failed_attempts = this.config.security.max_failed_login_attempts;
   var query;
   var msg;
   var self = this;
   if(current_failed_logins >= max_failed_attempts) {
-    this.lockUserAccount(function (err) {
-      callback(err);
+    this.lockUserAccount(user, function (user, err) {
+      return callback(err, user);
     });
   } else {
-    this.user = this.buildQuery(this.user, this.config.user.account_failed_attempts, current_failed_logins);
+    this.user = this.buildQuery(user, this.config.user.account_failed_attempts, current_failed_logins);
     msg = this.config.errmsg.password_incorrect.replace('##i##', max_failed_attempts - current_failed_logins);
     errmsg = {
       err: msg,
       remaining_attempts: max_failed_attempts - current_failed_logins
     };
-    query = this.buildSimpleQuery(this.config.user.username, this.getVal(this.user, this.config.user.username));
-    this.db.update(query, this.user, function (err, doc) {
+    query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
+    this.db.update(query, user, function (err, doc) {
       if(err) {
         throw err;
       }
       if(!doc) {
-        throw new Exception('Failed login attempts could not be incremented');
+        return callback('Failed login attempts could not be incremented');
       }
 
       return callback(errmsg);
@@ -280,10 +296,10 @@ Adapter.prototype.incrementFailedLogins = function (callback) {
  * @param {Callback} callback - execute a callback after the account is unlocked.
  * @return {Callback}
  */
-Adapter.prototype.unlockUserAccount = function (callback) {
-  this.user = this.buildQuery(this.user, this.config.user.account_locked, false);
-  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(this.user, this.config.user.username));
-  this.db.update(query, this.user, function (err, docs) {
+Adapter.prototype.unlockUserAccount = function (user, callback) {
+  this.user = this.buildQuery(user, this.config.user.account_locked, false);
+  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
+  this.db.update(query, user, function (err, docs) {
     if(err) {
       throw err;
     }
@@ -301,22 +317,22 @@ Adapter.prototype.unlockUserAccount = function (callback) {
  * @param {Callback} callback - execute a callback after the lock
  * @return {Callback}
  */
-Adapter.prototype.lockUserAccount = function (callback) {
+Adapter.prototype.lockUserAccount = function (user, callback) {
   var expires;
   var query;
   var errmsg = this.config.errmsg.account_locked.replace('##i##', this.config.security.lock_account_for_minutes);
   var self = this;
   expires = moment().add(this.config.security.lock_account_for_minutes, 'minutes');
-  this.user = this.buildQuery(this.user, this.config.user.account_locked, true);
-  this.user = this.buildQuery(this.user, this.config.user.account_locked_until, expires.toDate());
-  query = this.buildSimpleQuery(this.config.user.username, this.getVal(this.user, this.config.user.username));
+  this.user = this.buildQuery(user, this.config.user.account_locked, true);
+  this.user = this.buildQuery(user, this.config.user.account_locked_until, expires.toDate());
+  query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
   this.db.update(query, this.user, function (err, doc) {
     if(err) {
       throw err;
     }
 
     if(!doc) {
-      throw Err('Account should be locked but could not be');
+      callback('Account could not be locked');
     }
     errobj = {
       err: errmsg,
@@ -333,12 +349,12 @@ Adapter.prototype.lockUserAccount = function (callback) {
  * @param {Callback} callback - execute a callback when the function is finished
  * @return {Callback}
  */
-Adapter.prototype.failedAttemptsExpired = function (callback) {
+Adapter.prototype.failedAttemptsExpired = function (user, callback) {
   var now = moment();
-  var last_failed_attempt = this.getVal(this.user, this.config.user.account_last_failed_attempt);
+  var last_failed_attempt = this.getVal(user, this.config.user.account_last_failed_attempt);
   var attempts_expire = moment(last_failed_attempt).add(this.config.security.reset_attempts_after_minutes, 'minutes');
   if(now.isAfter(attempts_expire)) {
-    this.resetFailedLoginAttempts(function () {
+    this.resetFailedLoginAttempts(user, function () {
       callback(null, true);
     });
   } else {
@@ -353,10 +369,10 @@ Adapter.prototype.failedAttemptsExpired = function (callback) {
  * @param {Callback} - execute a callback after the attempts are reset
  * @return {Callback}
  */
-Adapter.prototype.resetFailedLoginAttempts = function (callback) {
-  this.user = this.buildQuery(this.user, this.config.user.account_failed_attempts, 0);
-  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(this.user, this.config.user.username));
-  this.db.update(query, this.user, function (err, doc) {
+Adapter.prototype.resetFailedLoginAttempts = function (user, callback) {
+  user = this.buildQuery(user, this.config.user.account_failed_attempts, 0);
+  var query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
+  this.db.update(query, user, function (err, doc) {
     if(err) {
       throw err;
     }
@@ -388,15 +404,15 @@ Adapter.prototype.resetPassword = function (callback) {
  * @name isAccountLocked
  * @return {Boolean}
  */
-Adapter.prototype.isAccountLocked = function (callback) {
-  var isLocked = this.getVal(this.user, this.config.user.account_locked);
+Adapter.prototype.isAccountLocked = function (user, callback) {
+  var isLocked = this.getVal(user, this.config.user.account_locked);
   var unlocked_at;
   if(isLocked) {
-    unlocked_at = this.getVal(this.user, this.config.user.account_locked_until);
+    unlocked_at = this.getVal(user, this.config.user.account_locked_until);
     var now = moment();
     var expires = moment(unlocked_at);
     if(now.isAfter(expires)) {
-      this.unlockUserAccount(function () {
+      this.unlockUserAccount(user, function () {
         return callback(null, false);
       });
     } else {
@@ -411,8 +427,8 @@ Adapter.prototype.isAccountLocked = function (callback) {
 
 };
 
-Adapter.prototype.isEmailVerified = function () {
-  var isVerified = this.getVal(this.user, this.config.user.email_verified);
+Adapter.prototype.isEmailVerified = function (user) {
+  var isVerified = this.getVal(user, this.config.user.email_verified);
   return isVerified;
 };
 
