@@ -149,11 +149,14 @@ Adapter.prototype.comparePassword = function (user, login, callback) {
       bcrypt.compare(supplied_pass, db_pass, function (err, match) {
 
     if(match) {
+        
       return callback(null, user);
     } else {
-
+        
       if(self.config.security.max_failed_login_attempts) {
+          
         self.incrementFailedLogins(user, function (err) {
+            
           return callback(err, user);
         });
       } else {
@@ -497,8 +500,13 @@ Adapter.prototype.verifyEmailAddress = function (user, callback) {
   var self = this;
   var username = this.getVal(user, this.config.user.username);
   var find_query = this.buildSimpleQuery(this.config.user.username, username);
-  this.db.update(find_query, user, function (err, user) {
-    callback(err, user);
+  this.db.update(find_query, user, function (err, doc) {
+      if(doc){
+          return callback();
+      } else {
+          return callback('Email address could not be verified');
+      }
+    
   });
 };
 
@@ -668,17 +676,20 @@ Adapter.prototype.incrementFailedLogins = function (user, callback) {
   var msg;
   var self = this;
   if(current_failed_logins >= max_failed_attempts) {
-    this.lockUserAccount(user, function (user, err) {
+    this.lockUserAccount(user, function (err, user) {
+        
       return callback(err, user);
     });
   } else {
     user = this.buildQuery(user, this.config.user.account_failed_attempts, current_failed_logins);
+    user = this.buildQuery(user, this.config.user.account_last_failed_attempt, moment().toDate());
     msg = this.config.errmsg.password_incorrect.replace('##i##', max_failed_attempts - current_failed_logins);
     errmsg = {
       err: msg,
       remaining_attempts: max_failed_attempts - current_failed_logins
     };
     query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
+
     this.db.update(query, user, function (err, doc) {
       if(err) {
         throw err;
@@ -743,7 +754,7 @@ Adapter.prototype.lockUserAccount = function (user, callback) {
       err: errmsg,
       lock_until: expires.toDate()
     };
-    callback(errobj);
+    callback(errobj, null);
   });
 };
 
