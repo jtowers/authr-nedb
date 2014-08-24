@@ -542,7 +542,7 @@ it('should be able to check to see if an email address is verified', function(do
           adapter.hashPassword(login, user, 'account.password', function (err, user) {
             adapter.resetPassword(user, function (err, usr) {
               should.not.exist(err);
-              usr.should.equal(1);
+              should.exist(usr);
               done();
             });
 
