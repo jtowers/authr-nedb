@@ -430,41 +430,7 @@ it('should be able to check to see if an email address is verified', function(do
 
       });
 
-      it('should return error when the password is incorrect, hashing is off, and locking is on', function (done) {
-        var user_to_save = {
-          account: {
-            username: 'test@test.com',
-            password: 'test'
-          }
-        };
-        var saved_user;
-        adapter.config.security.hash_password = false;
-
-        adapter.doEmailVerification(user_to_save, function (err, user) {
-          if(err) {
-            throw err;
-          }
-          adapter.buildAccountSecurity(user);
-          adapter.saveUser(user, function (err, user) {
-            saved_user = user;
-            adapter.comparePassword(saved_user, {
-              account: {
-                username: 'test@test.com',
-                password: 'not_really_it'
-              }
-            }, function (err, user) {
-              should.exist(err);
-              err.err.should.equal(adapter.config.errmsg.password_incorrect.replace('##i##', 9));
-              adapter.resetCollection(function(){
-                done();
-              });
-              
-            });
-
-          });
-        });
-
-      });
+    
 
       it('should return error when the password is incorrect, hashing is off, and locking is off', function (done) {
         var user_to_save = {
