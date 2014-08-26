@@ -83,6 +83,7 @@ Adapter.prototype.checkCredentials = function (obj, callback) {
     if(!username || !password) {
         return callback(this.config.errmsg.un_and_pw_required, obj);
     } else {
+        obj = this.buildQuery(obj, this.config.user.username, username.toString().toLowerCase());
         return callback(null, obj);
     }
 };
