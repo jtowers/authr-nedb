@@ -333,8 +333,8 @@ it('should be able to check to see if an email address is verified', function(do
       it('should be able to unlock an account', function (done) {
         adapter.isValueTaken(saved_user, adapter.config.user.username, function (err, usr) {
           adapter.lockUserAccount(usr, function (err) {
-            adapter.unlockUserAccount(usr, function (err, user) {
-              user.account.locked.account_locked.should.equal(false);
+            adapter.unlockUserAccount(usr, function () {
+              adapter.user.account.locked.account_locked.should.equal(false);
               done();
             });
 
