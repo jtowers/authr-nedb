@@ -380,6 +380,7 @@ Adapter.prototype.buildAccountSecurity = function (obj) {
  * @param {saveUserCallback} callback - Run a callback after the user has been inserted
  */
 Adapter.prototype.saveUser = function (user, callback) {
+    user = this.buildQuery(user, this.config.user.username, this.getVal(user, this.config.user.username).toString().toLowerCase());
     this.db.insert(user, function (err, doc) {
         return callback(err, doc);
     });
@@ -704,7 +705,8 @@ Adapter.prototype.incrementFailedLogins = function (user, callback) {
  * @param {Callback} callback - execute a callback after the account is unlocked.
  */
 Adapter.prototype.unlockUserAccount = function (user, callback) {
-    this.user = this.buildQuery(user, this.config.user.account_locked, false);
+    user = this.buildQuery(user, this.config.user.account_locked, false);
+    user = this.buildQuery(user, this.config.user.account_locked_until, null);
     var query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
     this.db.update(query, user, function (err, docs) {
         if(err) {
@@ -713,7 +715,7 @@ Adapter.prototype.unlockUserAccount = function (user, callback) {
         if(!docs) {
             throw new Exception('No user updated');
         }
-        callback();
+        callback(null, user);
     });
 };
 
@@ -731,10 +733,10 @@ Adapter.prototype.lockUserAccount = function (user, callback) {
     var errmsg = this.config.errmsg.account_locked.replace('##i##', this.config.security.lock_account_for_minutes);
     var self = this;
     expires = moment().add(this.config.security.lock_account_for_minutes, 'minutes');
-    this.user = this.buildQuery(user, this.config.user.account_locked, true);
-    this.user = this.buildQuery(user, this.config.user.account_locked_until, expires.toDate());
+    user = this.buildQuery(user, this.config.user.account_locked, true);
+    user = this.buildQuery(user, this.config.user.account_locked_until, expires.toDate());
     query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
-    this.db.update(query, this.user, function (err, doc) {
+    this.db.update(query, user, function (err, doc) {
         if(err) {
             throw err;
         }
