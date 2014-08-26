@@ -49,6 +49,12 @@ Adapter.prototype.disconnect = function (callback) {
 Adapter.prototype.isValueTaken = function (object, path, callback) {
     var self = this;
     var val = this.getVal(object, path);
+<<<<<<< HEAD
+    if(val) {
+        val = val.toLowerCase();
+    }
+=======
+>>>>>>> release/1.5.4
     var query = this.buildSimpleQuery(path, val);
     this.db.findOne(query, function (err, doc) {
         if(err) {
@@ -141,11 +147,21 @@ Adapter.prototype.comparePassword = function (user, login, callback) {
         bcrypt.compare(supplied_pass, db_pass, function (err, match) {
 
             if(match) {
+<<<<<<< HEAD
+
+=======
+>>>>>>> release/1.5.4
                 return callback(null, user);
             } else {
 
                 if(self.config.security.max_failed_login_attempts) {
+<<<<<<< HEAD
+
                     self.incrementFailedLogins(user, function (err) {
+
+=======
+                    self.incrementFailedLogins(user, function (err) {
+>>>>>>> release/1.5.4
                         return callback(err, user);
                     });
                 } else {
@@ -210,6 +226,11 @@ Adapter.prototype.failedAttemptsExpired = function (user, callback) {
  */
 Adapter.prototype.resetPassword = function (user, callback) {
     var query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
+<<<<<<< HEAD
+    user = this.buildQuery(user, this.config.user.password_reset_token, null);
+    user = this.buildQuery(user, this.config.user.password_reset_token_expiration, null);
+=======
+>>>>>>> release/1.5.4
     this.db.update(query, user, function (err, doc) {
         if(err) {
             throw err;
@@ -217,7 +238,11 @@ Adapter.prototype.resetPassword = function (user, callback) {
         if(!doc) {
             callback(new Error('Could not reset user password'), null);
         } else {
+<<<<<<< HEAD
+            callback(err, user);
+=======
             callback(err, doc);
+>>>>>>> release/1.5.4
         }
     });
 };
@@ -486,8 +511,18 @@ Adapter.prototype.verifyEmailAddress = function (user, callback) {
     var self = this;
     var username = this.getVal(user, this.config.user.username);
     var find_query = this.buildSimpleQuery(this.config.user.username, username);
+<<<<<<< HEAD
+    this.db.update(find_query, user, function (err, doc) {
+        if(doc) {
+            return callback(null, user);
+        } else {
+            return callback('Email address could not be verified');
+        }
+
+=======
     this.db.update(find_query, user, function (err, user) {
         callback(err, user);
+>>>>>>> release/1.5.4
     });
 };
 
@@ -509,6 +544,10 @@ Adapter.prototype.getUserByEmail = function (email, callback) {
     var query = this.buildSimpleQuery(this.config.user.email_address, email);
 
     this.db.findOne(query, function (err, doc) {
+<<<<<<< HEAD
+
+=======
+>>>>>>> release/1.5.4
         if(err) throw err;
         if(doc) {
             return callback(null, doc);
@@ -655,17 +694,30 @@ Adapter.prototype.incrementFailedLogins = function (user, callback) {
     var msg;
     var self = this;
     if(current_failed_logins >= max_failed_attempts) {
+<<<<<<< HEAD
+        this.lockUserAccount(user, function (err, user) {
+
+=======
         this.lockUserAccount(user, function (user, err) {
+>>>>>>> release/1.5.4
             return callback(err, user);
         });
     } else {
         user = this.buildQuery(user, this.config.user.account_failed_attempts, current_failed_logins);
+<<<<<<< HEAD
+        user = this.buildQuery(user, this.config.user.account_last_failed_attempt, moment().toDate());
+=======
+>>>>>>> release/1.5.4
         msg = this.config.errmsg.password_incorrect.replace('##i##', max_failed_attempts - current_failed_logins);
         errmsg = {
             err: msg,
             remaining_attempts: max_failed_attempts - current_failed_logins
         };
         query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
+<<<<<<< HEAD
+
+=======
+>>>>>>> release/1.5.4
         this.db.update(query, user, function (err, doc) {
             if(err) {
                 throw err;
@@ -688,7 +740,12 @@ Adapter.prototype.incrementFailedLogins = function (user, callback) {
  * @param {Callback} callback - execute a callback after the account is unlocked.
  */
 Adapter.prototype.unlockUserAccount = function (user, callback) {
+<<<<<<< HEAD
+    user = this.buildQuery(user, this.config.user.account_locked, false);
+    user = this.buildQuery(user, this.config.user.account_locked_until, null);
+=======
     this.user = this.buildQuery(user, this.config.user.account_locked, false);
+>>>>>>> release/1.5.4
     var query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
     this.db.update(query, user, function (err, docs) {
         if(err) {
@@ -697,7 +754,11 @@ Adapter.prototype.unlockUserAccount = function (user, callback) {
         if(!docs) {
             throw new Exception('No user updated');
         }
+<<<<<<< HEAD
+        callback(null, user);
+=======
         callback();
+>>>>>>> release/1.5.4
     });
 };
 
@@ -715,10 +776,17 @@ Adapter.prototype.lockUserAccount = function (user, callback) {
     var errmsg = this.config.errmsg.account_locked.replace('##i##', this.config.security.lock_account_for_minutes);
     var self = this;
     expires = moment().add(this.config.security.lock_account_for_minutes, 'minutes');
+<<<<<<< HEAD
+    user = this.buildQuery(user, this.config.user.account_locked, true);
+    user = this.buildQuery(user, this.config.user.account_locked_until, expires.toDate());
+    query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
+    this.db.update(query, user, function (err, doc) {
+=======
     this.user = this.buildQuery(user, this.config.user.account_locked, true);
     this.user = this.buildQuery(user, this.config.user.account_locked_until, expires.toDate());
     query = this.buildSimpleQuery(this.config.user.username, this.getVal(user, this.config.user.username));
     this.db.update(query, this.user, function (err, doc) {
+>>>>>>> release/1.5.4
         if(err) {
             throw err;
         }
@@ -730,7 +798,11 @@ Adapter.prototype.lockUserAccount = function (user, callback) {
             err: errmsg,
             lock_until: expires.toDate()
         };
+<<<<<<< HEAD
+        callback(errobj, null);
+=======
         callback(errobj);
+>>>>>>> release/1.5.4
     });
 };
 
